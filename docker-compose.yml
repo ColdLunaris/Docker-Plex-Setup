@@ -1,0 +1,101 @@
+version: '3.3'
+services:
+    transmission-openvpn:
+        cap_add:
+            - NET_ADMIN
+        volumes:
+            - /mnt/tank/transmission/:/data/
+            - /opt/transmission/config/:/config/
+            - /opt/transmission/openvpn/:/etc/openvpn/custom/
+            - /etc/localtime:/etc/localtime:ro
+        environment:
+            - OPENVPN_PROVIDER=custom
+            - OPENVPN_CONFIG=
+            - OPENVPN_USERNAME=
+            - OPENVPN_PASSWORD=
+            - LOCAL_NETWORK=192.168.2.0/24,10.0.0.0/24
+            - TZ=CET
+        logging:
+            driver: json-file
+            options:
+                max-size: 10m
+        ports:
+            - '9091:9091'
+        networks:
+            - plexnet
+        restart: on-failure:2
+        container_name: transmission-openvpn
+        image: haugene/transmission-openvpn:latest
+    sonarr:
+        volumes:
+            - /opt/sonarr/config/:/config/
+            - /mnt/tank/plex/tv/:/tv/
+            - /mnt/tank/transmission/completed/:/downloads/
+        environment:
+            - PGID=1000
+            - PUID=1000
+            - TZ=Europe/Oslo
+        ports:
+            - '8989:8989'
+        networks:
+            - plexnet
+        restart: on-failure:2
+        container_name: sonarr
+        image: linuxserver/sonarr:latest
+    jackett:
+        volumes:
+            - /opt/jackett/config/:/config/
+            - /mnt/tank/jackett/downloads:/downloads/
+        environment:
+            - PGID=1000
+            - PUID=1000
+            - TZ=Europe/Oslo
+        ports:
+            - '9117:9117'
+        networks:
+            - plexnet
+        restart: on-failure:2
+        container_name: jackett
+        image: linuxserver/jackett:latest
+    plex:
+        volumes:
+            - /opt/plex/config/:/config/
+            - /mnt/tank/plex/:/data/
+        environment:
+            - PGID=1000
+            - PUID=1000
+            - TZ=Europe/Oslo
+        ports:
+            - '32400:32400'
+            - '1900:1900'
+            - '3005:3005'
+            - '5353:5353'
+            - '8324:8324'
+            - '32410:32410'
+            - '32412:32412'
+            - '32413:32413'
+            - '32414:32414'
+            - '32469:32469'
+        networks:
+            - plexnet
+        restart: on-failure:2
+        container_name: plex
+        image: linuxserver/plex:latest
+    watchtower:
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+        environment:
+            - WATCHTOWER_NOTIFICATIONS=email
+            - WATCHTOWER_NOTIFICATION_EMAIL_FROM=
+            - WATCHTOWER_NOTIFICATION_EMAIL_TO=
+            - WATCHTOWER_NOTIFICATION_EMAIL_SERVER=smtp.gmail.com
+            - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT=465
+            - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER=
+            - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD=
+        command: transmission-openvpn sonarr jackett plex
+        restart: on-failure:2
+        container_name: watchtower
+        image: containrrr/watchtower:latest
+networks:
+    plexnet:
+        driver: bridge
