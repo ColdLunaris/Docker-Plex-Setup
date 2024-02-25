@@ -1,0 +1,34 @@
+ARG BASE_TAG="1.15.0"
+FROM kasmweb/chrome:$BASE_TAG
+USER root
+
+ENV HOME /home/kasm-default-profile
+ENV STARTUPDIR /dockerstartup
+ENV INST_SCRIPTS $STARTUPDIR/install
+WORKDIR $HOME
+
+######### Customize Container Here ###########
+
+# Install WireGuard and other dependencies
+RUN apt update
+RUN apt install -y wireguard-tools openresolv
+
+# Load WireGuard kernel module
+RUN echo "wireguard" >> /etc/modules
+
+# Copy VPN connection profile
+COPY wg0.conf /etc/wireguard/wg0.conf
+
+# Set WireGuard to run before starting Chrome
+RUN sed -i '/$START_COMMAND.*/i \/usr\/bin\/wg-quick up wg0' $STARTUPDIR/custom_startup.sh
+
+######### End Customizations ###########
+
+RUN chown 1000:0 $HOME
+RUN $STARTUPDIR/set_user_permission.sh $HOME
+
+ENV HOME /home/kasm-user
+WORKDIR $HOME
+RUN mkdir -p $HOME && chown -R 1000:0 $HOME
+
+USER 1000
